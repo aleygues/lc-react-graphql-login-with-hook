@@ -1,33 +1,27 @@
-import { useMutation } from "@apollo/client";
 import { useState } from "react";
 import { useHistory } from "react-router";
-import gql from "graphql-tag";
-
-const CREATE_USER = gql`
-    mutation createUser($email: String!, $password: String!) {
-        createUser(email: $email, password: $password) {
-            id
-            email
-        }
-    }
-`;
+import { useAuth } from "../hooks/auth.hook";
 
 function SignupScreen(): JSX.Element {
     const { replace } = useHistory();
     const [email, setEmail] = useState('jack@gmail.com');
     const [password, setPassword] = useState('supersecret');
-    const [doCreateUser, { loading, error }] = useMutation(CREATE_USER);
+    const [loading, setLoading] = useState(false);
+    const [failed, setFailed] = useState(false);
+
+    const { signup } = useAuth();
 
     const onSubmit = async () => {
         // should be moved to the context
-        await doCreateUser({
-            variables: {
-                email: email,
-                password: password
-            }
-        });
-        // success
-        replace('/');
+        setLoading(true);
+        setFailed(false);
+        if (await signup(email, password) === true) {
+            // success
+            replace('/');
+        } else {
+            setFailed(true);
+        }
+        setLoading(false);
     };
 
     return (
@@ -35,8 +29,8 @@ function SignupScreen(): JSX.Element {
             <h1>Signup</h1>
             Email : <input type="text" value={email} onChange={e => setEmail(e.target.value)} /><br />
             Password : <input type="password" value={password} onChange={e => setPassword(e.target.value)} /><br />
-            <button onClick={onSubmit} disabled={loading === true}>Inscription</button>
-            {error && <p>Error</p>}
+            <button onClick={onSubmit} disabled={loading}>Inscription</button>
+            {failed && <p>Error</p>}
         </>
     );
 }

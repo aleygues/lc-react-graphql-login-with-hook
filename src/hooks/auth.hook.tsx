@@ -1,4 +1,4 @@
-import { gql, useQuery } from "@apollo/client";
+import { gql, useMutation, useQuery } from "@apollo/client";
 import { createContext, useContext, useEffect, useState } from "react";
 
 const GET_ME = gql`
@@ -10,17 +10,28 @@ const GET_ME = gql`
     }
 `;
 
+const SIGNIN = gql`
+    mutation signin($email: String!, $password: String!) {
+        signin(email: $email, password: $password)
+    }
+`;
+
+const CREATE_USER = gql`
+    mutation createUser($email: String!, $password: String!) {
+        createUser(email: $email, password: $password) {
+            id
+            email
+        }
+    }
+`;
+
 export const AuthContext = createContext<{
     isConnected: boolean,
-    setIsConnected: Function,
-    checkLogin: Function,
-    user: { id: number, email: string } | null
-}>({
-    isConnected: false,
-    setIsConnected: () => { },
-    checkLogin: () => { },
-    user: null
-});
+    user: { id: number, email: string } | null,
+    signin: (email: string, password: string) => Promise<boolean>,
+    signup: (email: string, password: string) => Promise<boolean>,
+    signout: () => Promise<void>
+} | null>(null);
 
 export function AuthProvider({
     children
@@ -28,7 +39,8 @@ export function AuthProvider({
     children: JSX.Element | JSX.Element[]
 }): JSX.Element {
     const [isConnected, setIsConnected] = useState(false);
-
+    const [doSignin] = useMutation(SIGNIN);
+    const [doCreateUser] = useMutation(CREATE_USER);
     const { data: getMeData, refetch } = useQuery(GET_ME);
 
     useEffect(() => {
@@ -42,13 +54,53 @@ export function AuthProvider({
     }, [getMeData]);
 
     // should add signin, signup and signout here
+    const signin = async (email: string, password: string): Promise<boolean> => {
+        try {
+            const result = await doSignin({
+                variables: {
+                    email: email,
+                    password: password
+                }
+            });
+            if (result.data.signin) {
+                // success
+                localStorage.setItem('token', result.data.signin);
+                await refetch();
+                return true;
+            } else {
+                return false;
+            }
+        } catch {
+            return false;
+        }
+    }
+
+    const signup = async (email: string, password: string): Promise<boolean> => {
+        try {
+            await doCreateUser({
+                variables: {
+                    email: email,
+                    password: password
+                }
+            });
+            return true;
+        } catch {
+            return false;
+        }
+    };
+
+    const signout = async (): Promise<void> => {
+        localStorage.removeItem('token');
+        refetch();
+    };
 
     return (
         <AuthContext.Provider value={{
             isConnected,
-            setIsConnected,
-            checkLogin: refetch,
-            user: getMeData?.getMe
+            user: getMeData?.getMe,
+            signin,
+            signup,
+            signout
         }}>
             {children}
         </AuthContext.Provider>
@@ -57,5 +109,9 @@ export function AuthProvider({
 
 export function useAuth() {
     const authContext = useContext(AuthContext);
-    return authContext;
+    if (authContext) {
+        return authContext;
+    } else {
+        throw new Error('auth_context_not_set');
+    }
 }

@@ -1,7 +1,6 @@
 import { gql, useQuery } from "@apollo/client";
-import { useContext, useEffect, useState } from "react";
 import { useHistory } from "react-router";
-import { AuthContext, useAuth } from "../hooks/auth.hook";
+import { useAuth } from "../hooks/auth.hook";
 
 const GET_USERS = gql`
     query getUsers {
@@ -10,17 +9,16 @@ const GET_USERS = gql`
             email
         }
     }
-`
+`;
 
 function DashboardScreen(): JSX.Element {
     const { replace } = useHistory();
     const { data } = useQuery(GET_USERS);
-    const { isConnected, checkLogin, user } = useAuth();
+    const { isConnected, signout, user } = useAuth();
 
     // should be move to the context
-    const logout = () => {
-        localStorage.removeItem('token');
-        checkLogin();
+    const logout = async () => {
+        await signout();
         replace('/home');
     };
 
